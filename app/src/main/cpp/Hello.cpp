@@ -27,15 +27,22 @@ int xcc_signal_trace_register(void (*handler)(int, siginfo_t *, void *)) {
     sigset_t set;
     struct sigaction act;
     //un-block the SIGQUIT mask for current thread, hope this is the main thread
+    //重置set,等待使用
     sigemptyset(&set);
+    //添加信号到信号集合
     sigaddset(&set, SIGQUIT);
+
+    LOGD("pthread_sigmask before");
+    //SIG_UNBLOCK 清空内存中的，据用户设置的数据，对内核中的数据进行解除阻塞，就是解除内核中set的最,失败直接返回errorNo
     if (0 != (r = pthread_sigmask(SIG_UNBLOCK, &set, NULL))) return r;
-    //register new signal handler for SIGQUIT
+    //register new signal handler for SIGQUIT(注册新的SIGQUIT捕获函数)
     memset(&act, 0, sizeof(act));
     sigfillset(&act.sa_mask);
     act.sa_sigaction = handler;
     act.sa_flags = SA_RESTART | SA_SIGINFO;
+    LOGD("pthread_sigmask after");
     if (0 != sigaction(SIGQUIT, &act, NULL)) {
+        //注册SIG_QUIT失败，清空内核中的sigaction
         pthread_sigmask(SIG_SETMASK, &xcc_signal_trace_oldset, NULL);
         return 1;
     }
